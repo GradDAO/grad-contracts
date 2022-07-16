@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.14;
+pragma solidity 0.8.15;
 
 import "../libraries/SafeERC20.sol";
 import "../types/Ownable.sol";
 import "../interfaces/IClaim.sol";
 
-
 /**
  *  This contract allows seed investors, advisers and the team to claim tokens.
  *  Current functionality of the contract merely allows to set terms of future vesting.
- *  Thus, it has a functionality not for redeeming but for buying and setting shares of seed investors and genesis team.   
+ *  Thus, it has a functionality not for redeeming but for buying and setting shares of seed investors and genesis team.
  */
 contract Claim is Ownable {
     /* ========== DEPENDENCIES ========== */
@@ -24,80 +23,114 @@ contract Claim is Ownable {
         uint256 max; // maximum nominal GRAD amount can claim (9 decimals)
         uint256 claimer; // type of claimer (0 - team, 1 - investor, 2 - adviser)
     }
-    
-    struct Claimers {
-        uint256 team;
-        uint256 investors;
-        uint256 advisers;
+
+    enum Claimers {
+        Team, Investors, Advisers
     }
 
     /* ========== STATE VARIABLES ========== */
 
     // payment token
-    IERC20 internal immutable dai = IERC20(address(0));
+    IERC20 internal immutable dai =
+        IERC20(0x8D11eC38a3EB5E956B052f67Da8Bdc9bef8Abf3E);
+
     // previous deployment of contract (to migrate terms). It's the first version
     IClaim internal immutable previous = IClaim(address(0));
 
     // tracks address info
     mapping(address => Term) public terms;
+
     // facilitates address change
     mapping(address => address) public walletChange;
+
     // maximum portion of supply can allocate (10% team, 5% investors, 3% advisers) (4 decimals)
-    Claimers public maximumAllocatedPercents = Claimers(10 *1e4, 5 *1e4, 3 *1e4);
+    uint256[3] public maximumAllocatedPercents = [10 * 1e4, 5 * 1e4, 3 * 1e4];
+
     // maximum amount of GRAD can allocate (330mm team, 70mm investors, 50mm advisers) (9 decimals)
-    Claimers public maximumAllocatedTokens = Claimers(330*1e6 *1e9, 70*1e6 *1e9, 50*1e6 *1e9);
+    uint256[3] public maximumAllocatedTokens = [330 * 1e6 * 1e9, 70 * 1e6 * 1e9, 50 * 1e6 * 1e9];
+
     // current allocated percents
-    Claimers public totalAllocatedPercents = Claimers(0, 0, 0);
+    uint256[3] public totalAllocatedPercents = [0, 0, 0];
+
     // current allocated GRADs
-    Claimers public totalAllocatedTokens = Claimers(0, 0, 0);
+    uint256[3] public totalAllocatedTokens = [0, 0, 0];
 
-    bool public saleOpened; // open sale
-    mapping(address => uint256) public saleWhitelist; // sale whitelist (amount for each address)
+    // sale status
+    bool public saleOpened; 
+
+    // sale whitelist (amount for each address)
+    mapping(address => uint256) public saleInvestorWhitelist; 
+
     uint256 public gradPrice; // 4 decimals ($1 = 10000)
-
 
     constructor(uint256 _gradPrice) {
         gradPrice = _gradPrice;
     }
 
-
     /* ========== CLAIMERS FUNCTIONS ========== */
 
+    /**
+     * @notice allows to get a term of address
+     * @dev
+     * @param _address address of a term
+     */
+    function getTerm(address _address) external view returns(Term memory) {
+        return terms[_address];
+    }
 
     /**
      * @notice allows address to push terms to new address
-     * @dev 
+     * @dev
      * @param _address address to send allocation
      * @param _amount amount of GRAD to buy
      */
-    function buyAllocation(address _address, uint256 _amount) external {
+    function buyInvestorsAllocation(address _address, uint256 _amount) external {
         require(saleOpened, "Sale is closed");
-        require(saleWhitelist[msg.sender] != 0, "Address is not whitelisted");
-        require(saleWhitelist[msg.sender] >= _amount, "Cannot buy more than allowed");
+        require(saleInvestorWhitelist[msg.sender] != 0, "Address is not whitelisted");
+        require(
+            saleInvestorWhitelist[msg.sender] >= _amount,
+            "Cannot buy more than allowed"
+        );
 
-        saleWhitelist[msg.sender] -= _amount;
+        saleInvestorWhitelist[msg.sender] -= _amount;
 
-        uint256 percent_ = getShare(_amount, maximumAllocatedTokens.investors, maximumAllocatedPercents.investors);
+        uint claimer = uint256(Claimers.Investors);
 
-        require(totalAllocatedPercents.investors + percent_ <= maximumAllocatedPercents.investors, "Cannot allocate more percents");
-        require(totalAllocatedTokens.investors + _amount <= maximumAllocatedTokens.investors, "Cannot allocate more tokens");
+        uint256 percent_ = getShare(
+            _amount,
+            maximumAllocatedTokens[claimer],
+            maximumAllocatedPercents[claimer]
+        );
 
-        dai.safeTransferFrom(msg.sender, address(this), (_amount * gradPrice) / 1e4); 
+        require(
+            totalAllocatedPercents[claimer] + percent_ <=
+                maximumAllocatedPercents[claimer],
+            "Cannot allocate more percents"
+        );
+        require(
+            totalAllocatedTokens[claimer] + _amount <=
+                maximumAllocatedTokens[claimer],
+            "Cannot allocate more tokens"
+        );
 
-        totalAllocatedPercents.investors += percent_;
-        totalAllocatedTokens.investors += _amount;
+        dai.safeTransferFrom(
+            msg.sender,
+            address(this),
+            (_amount * gradPrice) / 1e5 // 18 (dai) - 9 (grad) - 4 (gradPrice) decimals
+        );
+
+        totalAllocatedPercents[claimer] += percent_;
+        totalAllocatedTokens[claimer] += _amount;
 
         terms[_address] = Term({
-            percent: terms[_address].percent + percent_, 
-            gClaimed: 0, 
-            max: terms[_address].max + _amount, 
-            claimer: 1
-        }); 
+            percent: terms[_address].percent + percent_,
+            gClaimed: 0,
+            max: terms[_address].max + _amount,
+            claimer: claimer
+        });
     }
 
-
     /* ========== MUTABLE FUNCTIONS ========== */
-
 
     /**
      * @notice allows address to push terms to new address
@@ -113,7 +146,10 @@ contract Claim is Ownable {
      * @param _oldAddress address
      */
     function pullWalletChange(address _oldAddress) external {
-        require(walletChange[_oldAddress] == msg.sender, "Old wallet did not push");
+        require(
+            walletChange[_oldAddress] == msg.sender,
+            "Old wallet did not push"
+        );
         require(terms[msg.sender].percent == 0, "Wallet already exists");
 
         walletChange[_oldAddress] = address(0);
@@ -121,13 +157,12 @@ contract Claim is Ownable {
         delete terms[_oldAddress];
     }
 
-
     /* ========== OWNER FUNCTIONS ========== */
 
     /**
      * @notice toggle sale status
      */
-    function toggleSaleStatus() external onlyOwner returns(bool) {
+    function toggleSaleStatus() external onlyOwner returns (bool) {
         saleOpened = !saleOpened;
         return saleOpened;
     }
@@ -145,8 +180,11 @@ contract Claim is Ownable {
      * @param _address address
      * @param _amount amount of GRAD allowed to buy
      */
-    function setWhitelist(address _address, uint256 _amount) external onlyOwner {
-        saleWhitelist[_address] = _amount;
+    function setAddressToInvestorWhitelist(address _address, uint256 _amount)
+        external
+        onlyOwner
+    {
+        saleInvestorWhitelist[_address] = _amount;
     }
 
     /**
@@ -159,71 +197,53 @@ contract Claim is Ownable {
     }
 
     /**
-     *  @notice set a term for a team member
+     *  @notice set a term for a claimer
      *  @dev can be changed by the owner
      *  @param _address address
      *  @param _percent uint256
      *  @param _max uint256
+     *  @param _claimer type of claimer (team, investor, adviser)
      */
-    function setTeamTerm(
+    function setTerm(
         address _address,
         uint256 _percent,
-        uint256 _max
+        uint256 _max,
+        Claimers _claimer
     ) public onlyOwner {
-        require(totalAllocatedPercents.team - terms[_address].percent + _percent <= maximumAllocatedPercents.team, "Cannot allocate more percents");
-        require(totalAllocatedTokens.team - terms[_address].max + _max <= maximumAllocatedTokens.team, "Cannot allocate more tokens");
-        
-        totalAllocatedPercents.team = totalAllocatedPercents.team + _percent - terms[_address].percent;
-        totalAllocatedTokens.team = totalAllocatedTokens.team + _max - terms[_address].max;
+        uint claimer = uint256(_claimer);
 
-        terms[_address] = Term({percent: _percent, gClaimed: 0, max: _max, claimer: 0});
+        require(
+            totalAllocatedPercents[claimer] -
+                terms[_address].percent +
+                _percent <=
+                maximumAllocatedPercents[claimer],
+            "Cannot allocate more percents"
+        );
+        require(
+            totalAllocatedTokens[claimer] - terms[_address].max + _max <=
+                maximumAllocatedTokens[claimer],
+            "Cannot allocate more tokens"
+        );
+
+        totalAllocatedPercents[claimer] =
+            totalAllocatedPercents[claimer] +
+            _percent -
+            terms[_address].percent;
+
+        totalAllocatedTokens[claimer] =
+            totalAllocatedTokens[claimer] +
+            _max -
+            terms[_address].max;
+
+        terms[_address] = Term({
+            percent: _percent,
+            gClaimed: 0,
+            max: _max,
+            claimer: claimer
+        });
     }
-
-    /**
-     *  @notice set a term for an investor
-     *  @dev cannot be changed by the owner
-     *  @param _address address
-     *  @param _percent uint256
-     *  @param _max uint256
-     */
-    function setInvestorTerm(
-        address _address,
-        uint256 _percent,
-        uint256 _max
-    ) public onlyOwner {
-        require(terms[_address].max == 0, "Cannot change an investor's allocation");
-        require(totalAllocatedPercents.investors + _percent <= maximumAllocatedPercents.investors, "Cannot allocate more percents");
-        require(totalAllocatedTokens.investors + _max <= maximumAllocatedTokens.investors, "Cannot allocate more tokens");
-
-        totalAllocatedPercents.investors += _percent;
-        totalAllocatedTokens.investors += _max;
-        terms[_address] = Term({percent: _percent, gClaimed: 0, max: _max, claimer: 1});
-    }
-
-    /**
-     *  @notice set a term for an adviser
-     *  @dev can be changed by the owner
-     *  @param _address address
-     *  @param _percent uint256
-     *  @param _max uint256
-     */
-    function setAdviserTerm(
-        address _address,
-        uint256 _percent,
-        uint256 _max
-    ) public onlyOwner {
-        require(totalAllocatedPercents.advisers - terms[_address].percent + _percent <= maximumAllocatedPercents.advisers, "Cannot allocate more percents");
-        require(totalAllocatedTokens.advisers - terms[_address].max + _max <= maximumAllocatedTokens.advisers, "Cannot allocate more tokens");
-        
-        totalAllocatedPercents.advisers = totalAllocatedPercents.advisers + _percent - terms[_address].percent;
-        totalAllocatedTokens.advisers = totalAllocatedTokens.advisers + _max - terms[_address].max;
-
-        terms[_address] = Term({percent: _percent, gClaimed: 0, max: _max, claimer: 2});
-    }
-
 
     /* ========== PUBLIC FUNCTIONS ========== */
-
 
     /**
      * @notice value2_ is such share of _amount2 as _value1 is of _amount1
@@ -233,8 +253,8 @@ contract Claim is Ownable {
      * @param value2_ uint256
      */
     function getShare(
-        uint256 _value1, 
-        uint256 _amount1, 
+        uint256 _value1,
+        uint256 _amount1,
         uint256 _amount2
     ) public pure returns (uint256 value2_) {
         value2_ = (_value1 * _amount2) / _amount1;
