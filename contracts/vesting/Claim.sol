@@ -28,6 +28,11 @@ contract Claim is Ownable {
         Team, Investors, Advisers
     }
 
+    /* ========== EVENTS ============= */
+
+    // buyInvestorsAllocation event
+    event buyInvestorsAllocationEvent(address indexed _investorAddress, uint256 _percent, uint256 _max);
+
     /* ========== STATE VARIABLES ========== */
 
     // payment token
@@ -128,6 +133,7 @@ contract Claim is Ownable {
             max: terms[_address].max + _amount,
             claimer: Claimers.Investors
         });
+        emit buyInvestorsAllocationEvent(_address, percent_, _amount);
     }
 
     /* ========== MUTABLE FUNCTIONS ========== */
@@ -212,28 +218,19 @@ contract Claim is Ownable {
     ) public onlyOwner {
         uint256 claimer = uint256(_claimer);
 
-        require(
-            totalAllocatedPercents[claimer] -
-                terms[_address].percent +
-                _percent <=
-                maximumAllocatedPercents[claimer],
-            "Cannot allocate more percents"
-        );
-        require(
-            totalAllocatedTokens[claimer] - terms[_address].max + _max <=
-                maximumAllocatedTokens[claimer],
-            "Cannot allocate more tokens"
-        );
+        uint256 newTotalAllocatedPercents = 
+            totalAllocatedPercents[claimer] - terms[_address].percent + _percent;
 
-        totalAllocatedPercents[claimer] =
-            totalAllocatedPercents[claimer] +
-            _percent -
-            terms[_address].percent;
+        uint256 newTotalAllocatedTokens = 
+            totalAllocatedTokens[claimer] - terms[_address].max + _max;
 
-        totalAllocatedTokens[claimer] =
-            totalAllocatedTokens[claimer] +
-            _max -
-            terms[_address].max;
+        require(newTotalAllocatedPercents <= maximumAllocatedPercents[claimer], "Cannot allocate more percents");
+
+        require(newTotalAllocatedTokens <= maximumAllocatedTokens[claimer], "Cannot allocate more tokens");
+
+        totalAllocatedPercents[claimer] = newTotalAllocatedPercents;
+
+        totalAllocatedTokens[claimer] = newTotalAllocatedTokens;
 
         terms[_address] = Term({
             percent: _percent,
