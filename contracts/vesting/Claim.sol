@@ -21,7 +21,7 @@ contract Claim is Ownable {
         uint256 percent; // 4 decimals ( 5000 = 0.5% )
         uint256 gClaimed; // rebase-agnostic number
         uint256 max; // maximum nominal GRAD amount can claim (9 decimals)
-        uint256 claimer; // type of claimer (0 - team, 1 - investor, 2 - adviser)
+        Claimers claimer; // type of claimer (0 - team, 1 - investor, 2 - adviser)
     }
 
     enum Claimers {
@@ -94,7 +94,7 @@ contract Claim is Ownable {
 
         saleInvestorWhitelist[msg.sender] -= _amount;
 
-        uint claimer = uint256(Claimers.Investors);
+        uint256 claimer = uint256(Claimers.Investors);
 
         uint256 percent_ = getShare(
             _amount,
@@ -126,7 +126,7 @@ contract Claim is Ownable {
             percent: terms[_address].percent + percent_,
             gClaimed: 0,
             max: terms[_address].max + _amount,
-            claimer: claimer
+            claimer: Claimers.Investors
         });
     }
 
@@ -162,9 +162,9 @@ contract Claim is Ownable {
     /**
      * @notice toggle sale status
      */
-    function toggleSaleStatus() external onlyOwner returns (bool) {
+    function toggleSaleStatus() external onlyOwner returns(bool) {
         saleOpened = !saleOpened;
-        return saleOpened;
+        return !saleOpened;
     }
 
     /**
@@ -210,7 +210,7 @@ contract Claim is Ownable {
         uint256 _max,
         Claimers _claimer
     ) public onlyOwner {
-        uint claimer = uint256(_claimer);
+        uint256 claimer = uint256(_claimer);
 
         require(
             totalAllocatedPercents[claimer] -
@@ -239,7 +239,7 @@ contract Claim is Ownable {
             percent: _percent,
             gClaimed: 0,
             max: _max,
-            claimer: claimer
+            claimer: _claimer
         });
     }
 
