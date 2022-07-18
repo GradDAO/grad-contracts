@@ -77,10 +77,28 @@ describe("Claim Test", async () => {
     });
 
     describe("Claim setTerm", async () => { 
-        it("change Grad Price", async () => {
-            console.log(await claim.terms(investor.address));
+        it("change terms", async () => {
+            const currentTerms = await claim.terms(investor.address);
+            expect(currentTerms.percent).to.equal(0);
+            expect(currentTerms.max).to.equal(0);
+            expect(currentTerms.claimer).to.equal(0);
+
+            await claim.setTerm(investor.address, 5 * 1e4, 1 * 1e6 * 1e9, 1);
+
+            const newTerms = await claim.terms(investor.address);
+
+            expect(newTerms.percent).to.equal(5 * 1e4);
+            expect(newTerms.max).to.equal(1 * 1e6 * 1e9);
+            expect(newTerms.claimer).to.equal(1);
         });
     });
+
+
+    // beforeEach(async () => {
+    //     dai.mint(investor, 100000 * 1e18);
+    //     dai.connect(investor).approve(claim.address, 100000 * 1e18);
+    // });
+
 
     // it("Cannot buy without sale is started", async () => {
     //     await expect(
