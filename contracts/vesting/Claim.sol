@@ -116,7 +116,7 @@ contract Claim is Ownable {
         paymentToken.safeTransferFrom(
             msg.sender,
             address(this),
-            (_amount * gradPrice) * (paymentTokenMetadata.decimals() / 1e9 / 1e4) // 18 (dai) - 9 (grad) - 4 (gradPrice) decimals
+            (_amount * gradPrice * paymentTokenMetadata.decimals()) / 1e13 // 18 (dai) - 9 (grad) - 4 (gradPrice) decimals
         );
 
         totalAllocatedPercents[claimer] += percent_;

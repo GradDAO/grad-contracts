@@ -64,6 +64,16 @@ describe("Claim Test", async () => {
         expect(newStatus).to.equal(true);
     });
 
+    it("add investor to whitelist", async () => {
+        const currentAmountOfTokens = await claim.saleInvestorWhitelist(investor.address);
+        expect(currentAmountOfTokens).to.equal(0);
+
+        await claim.setAddressToInvestorWhitelist(investor.address, 1 * 1e6 * 1e9);
+
+        const NewAmountOfTokens = await claim.saleInvestorWhitelist(investor.address);
+        expect(NewAmountOfTokens).to.equal(1 * 1e6 * 1e9);
+    });
+
     // describe("Claim getShare", async () => { 
         
     // });
