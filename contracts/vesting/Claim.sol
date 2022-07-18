@@ -4,6 +4,7 @@ pragma solidity 0.8.15;
 import "../libraries/SafeERC20.sol";
 import "../types/Ownable.sol";
 import "../interfaces/IClaim.sol";
+import "../interfaces/IERC20Metadata.sol";
 
 /**
  *  This contract allows seed investors, advisers and the team to claim tokens.
@@ -38,8 +39,7 @@ contract Claim is Ownable {
     /* ========== STATE VARIABLES ========== */
 
     // payment token
-    IERC20 internal immutable dai =
-        IERC20(0x8D11eC38a3EB5E956B052f67Da8Bdc9bef8Abf3E);
+    IERC20 public paymentToken;
 
     // previous deployment of contract (to migrate terms). It's the first version
     IClaim internal immutable previous = IClaim(address(0));
@@ -70,8 +70,9 @@ contract Claim is Ownable {
 
     uint256 public gradPrice; // 4 decimals ($1 = 10000)
 
-    constructor(uint256 _gradPrice) {
+    constructor(uint256 _gradPrice, address _token) {
         gradPrice = _gradPrice;
+        paymentToken = IERC20(_token);
     }
 
     /* ========== CLAIMERS FUNCTIONS ========== */
@@ -111,10 +112,11 @@ contract Claim is Ownable {
             "Cannot allocate more tokens"
         );
 
-        dai.safeTransferFrom(
+        IERC20Metadata paymentTokenMetadata = IERC20Metadata(address(paymentToken));
+        paymentToken.safeTransferFrom(
             msg.sender,
             address(this),
-            (_amount * gradPrice) / 1e5 // 18 (dai) - 9 (grad) - 4 (gradPrice) decimals
+            (_amount * gradPrice) * (paymentTokenMetadata.decimals() / 1e9 / 1e4) // 18 (dai) - 9 (grad) - 4 (gradPrice) decimals
         );
 
         totalAllocatedPercents[claimer] += percent_;
@@ -175,6 +177,14 @@ contract Claim is Ownable {
     }
 
     /**
+     * @notice change payment token
+     * @param _newPaymentToken new token address
+     */
+    function changePaymentToken(address _newPaymentToken) external onlyOwner {
+        paymentToken = IERC20(_newPaymentToken);
+    }
+
+    /**
      * @notice add, remove or change members of whitelist
      * @param _address address
      * @param _amount amount of GRAD allowed to buy
@@ -195,7 +205,7 @@ contract Claim is Ownable {
     function withdraw(address _to, address _asset, uint256 _amount) external onlyOwner {
         IERC20 token;
         if (_asset == address(0)) {
-            token = dai;
+            token = paymentToken;
         } else {
             token = IERC20(_asset);
         }
