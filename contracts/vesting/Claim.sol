@@ -31,7 +31,7 @@ contract Claim is Ownable {
     /* ========== EVENTS ============= */
 
     // set terms event
-    event SetTerm(address indexed _address, uint256 _percent, uint256 _max, Claimers _claimer);
+    event SetTerm(address indexed _address, uint256 _percent, uint256 _max, Claimers indexed _claimer);
 
     // change wallet event
     event WalletChange(address indexed _oldAddress, address indexed _newAddress);
