@@ -19,7 +19,6 @@ contract Claim is Ownable {
 
     struct Term {
         uint256 percent; // 4 decimals ( 5000 = 0.5% )
-        uint256 gClaimed; // rebase-agnostic number
         uint256 max; // maximum nominal GRAD amount can claim (9 decimals)
         Claimers claimer; // type of claimer (0 - team, 1 - investor, 2 - adviser)
     }
@@ -30,8 +29,11 @@ contract Claim is Ownable {
 
     /* ========== EVENTS ============= */
 
-    // buyInvestorsAllocation event
-    event buyInvestorsAllocationEvent(address indexed _investorAddress, uint256 _percent, uint256 _max);
+    // set terms event
+    event SetTerm(address indexed _address, uint256 _percent, uint256 _max, Claimers _claimer);
+
+    // change wallet event
+    event WalletChange(address indexed _oldAddress, address indexed _newAddress);
 
     /* ========== STATE VARIABLES ========== */
 
@@ -73,15 +75,6 @@ contract Claim is Ownable {
     }
 
     /* ========== CLAIMERS FUNCTIONS ========== */
-
-    /**
-     * @notice allows to get a term of address
-     * @dev
-     * @param _address address of a term
-     */
-    function getTerm(address _address) external view returns(Term memory) {
-        return terms[_address];
-    }
 
     /**
      * @notice allows address to push terms to new address
@@ -129,11 +122,10 @@ contract Claim is Ownable {
 
         terms[_address] = Term({
             percent: terms[_address].percent + percent_,
-            gClaimed: 0,
             max: terms[_address].max + _amount,
             claimer: Claimers.Investors
         });
-        emit buyInvestorsAllocationEvent(_address, percent_, _amount);
+        emit SetTerm(_address, percent_, _amount, Claimers.Investors);
     }
 
     /* ========== MUTABLE FUNCTIONS ========== */
@@ -161,6 +153,7 @@ contract Claim is Ownable {
         walletChange[_oldAddress] = address(0);
         terms[msg.sender] = terms[_oldAddress];
         delete terms[_oldAddress];
+        emit WalletChange(_oldAddress, msg.sender);
     }
 
     /* ========== OWNER FUNCTIONS ========== */
@@ -196,10 +189,17 @@ contract Claim is Ownable {
     /**
      * @notice withdraw dai
      * @param _to address to withdraw
+     * @param _asset erc20 token to withdraw
      * @param _amount amount to withdraw
      */
-    function withdraw(address _to, uint256 _amount) external onlyOwner {
-        dai.safeTransfer(_to, _amount);
+    function withdraw(address _to, address _asset, uint256 _amount) external onlyOwner {
+        IERC20 token;
+        if (_asset == address(0)) {
+            token = dai;
+        } else {
+            token = IERC20(_asset);
+        }
+        token.safeTransfer(_to, _amount);
     }
 
     /**
@@ -234,10 +234,10 @@ contract Claim is Ownable {
 
         terms[_address] = Term({
             percent: _percent,
-            gClaimed: 0,
             max: _max,
             claimer: _claimer
         });
+        emit SetTerm(_address, _percent, _max, _claimer);
     }
 
     /* ========== PUBLIC FUNCTIONS ========== */
