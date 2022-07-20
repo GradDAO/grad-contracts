@@ -10,6 +10,7 @@ describe("Claim Test", async () => {
 
     before(async () => {
         [deployer, team, investor, adviser, alice, bob, carol] = await ethers.getSigners();
+        //erc20Factory = await smock.mock("MockERC20");
         erc20Factory = await smock.mock("MockERC20");
         claimFactory = await ethers.getContractFactory("Claim");
     });
@@ -17,10 +18,11 @@ describe("Claim Test", async () => {
     beforeEach(async () => {
         //dai = await erc20Factory.deploy("MockERC20", "0x8D11eC38a3EB5E956B052f67Da8Bdc9bef8Abf3E");
 
-        dai = await ethers.getContractAt(
-            "MockERC20",
-            "0x8D11eC38a3EB5E956B052f67Da8Bdc9bef8Abf3E"
-        );
+        // dai = await ethers.getContractAt(
+        //     "MockERC20",
+        //     "0x8D11eC38a3EB5E956B052f67Da8Bdc9bef8Abf3E"
+        // );
+        dai = await erc20Factory.deploy(1e6, "0x8D11eC38a3EB5E956B052f67Da8Bdc9bef8Abf3E", deployer.address);
         claim = await claimFactory.deploy(100, "0x8D11eC38a3EB5E956B052f67Da8Bdc9bef8Abf3E"); // set initial GRAD price as $0.01
     });
 
@@ -182,16 +184,16 @@ describe("Claim Test", async () => {
                 dai.mint(investor, 100000 * 1e18);
                 
                 console.log(await dai.decimals());
-
+                
                 const balance = await dai.balanceOf(investor.address);
                 expect(balance).to.be.equal(100000 * 1e18);
-
-
+                
+                
                 //dai.connect(investor).approve(claim.address, 100000 * 1e18);
                 // await claim.toggleSaleStatus();
                 // await claim.setAddressToInvestorWhitelist(investor.address, 1 * 1e6 * 1e9);
                 // await claim.connect(investor).buyInvestorsAllocation(investor.address, 1 * 1e6 * 1e9);
-
+                
                 // expect(dai.balanceOf(investor.address)).to.be.equal(90000 * 1e18);
             });
         });

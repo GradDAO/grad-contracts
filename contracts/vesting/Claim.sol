@@ -101,16 +101,16 @@ contract Claim is Ownable {
             maximumAllocatedPercents[claimer]
         );
 
-        require(
-            totalAllocatedPercents[claimer] + percent_ <=
-                maximumAllocatedPercents[claimer],
-            "Cannot allocate more percents"
-        );
-        require(
-            totalAllocatedTokens[claimer] + _amount <=
-                maximumAllocatedTokens[claimer],
-            "Cannot allocate more tokens"
-        );
+        // require(
+        //     totalAllocatedPercents[claimer] + percent_ <=
+        //         maximumAllocatedPercents[claimer],
+        //     "Cannot allocate more percents"
+        // );
+        // require(
+        //     totalAllocatedTokens[claimer] + _amount <=
+        //         maximumAllocatedTokens[claimer],
+        //     "Cannot allocate more tokens"
+        // );
 
         IERC20Metadata paymentTokenMetadata = IERC20Metadata(address(paymentToken));
         paymentToken.safeTransferFrom(
@@ -119,15 +119,17 @@ contract Claim is Ownable {
             (_amount * gradPrice * paymentTokenMetadata.decimals()) / 1e13 // 18 (dai) - 9 (grad) - 4 (gradPrice) decimals
         );
 
-        totalAllocatedPercents[claimer] += percent_;
-        totalAllocatedTokens[claimer] += _amount;
+        // totalAllocatedPercents[claimer] += percent_;
+        // totalAllocatedTokens[claimer] += _amount;
 
-        terms[_address] = Term({
-            percent: terms[_address].percent + percent_,
-            max: terms[_address].max + _amount,
-            claimer: Claimers.Investors
-        });
-        emit SetTerm(_address, percent_, _amount, Claimers.Investors);
+        setTerm(_address, percent_, _amount, Claimers.Investors);
+
+        // terms[_address] = Term({
+        //     percent: terms[_address].percent + percent_,
+        //     max: terms[_address].max + _amount,
+        //     claimer: Claimers.Investors
+        // });
+        //emit SetTerm(_address, percent_, _amount, Claimers.Investors);
     }
 
     /* ========== MUTABLE FUNCTIONS ========== */
