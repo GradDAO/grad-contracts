@@ -120,37 +120,16 @@ contract Claim is Ownable {
             maximumAllocatedPercents[claimer]
         );
 
-        // require(
-        //     totalAllocatedPercents[claimer] + percent_ <=
-        //         maximumAllocatedPercents[claimer],
-        //     "Cannot allocate more percents"
-        // );
-        // require(
-        //     totalAllocatedTokens[claimer] + _amount <=
-        //         maximumAllocatedTokens[claimer],
-        //     "Cannot allocate more tokens"
-        // );
-
         IERC20Metadata paymentTokenMetadata = IERC20Metadata(
             address(paymentToken)
         );
         paymentToken.safeTransferFrom(
             msg.sender,
             address(this),
-            (_amount * gradPrice * paymentTokenMetadata.decimals()) / 1e13 // 18 (dai) - 9 (grad) - 4 (gradPrice) decimals
+            (_amount * gradPrice * 10**paymentTokenMetadata.decimals()) / 1e13 // 18 (dai) - 9 (grad) - 4 (gradPrice) decimals
         );
 
-        // totalAllocatedPercents[claimer] += percent_;
-        // totalAllocatedTokens[claimer] += _amount;
-
         _setTerm(_address, percent_, _amount, Claimers.Investors);
-
-        // terms[_address] = Term({
-        //     percent: terms[_address].percent + percent_,
-        //     max: terms[_address].max + _amount,
-        //     claimer: Claimers.Investors
-        // });
-        //emit SetTerm(_address, percent_, _amount, Claimers.Investors);
     }
 
     /* ========== MUTABLE FUNCTIONS ========== */
@@ -229,7 +208,7 @@ contract Claim is Ownable {
         address _to,
         address _asset,
         uint256 _amount
-    ) external onlyOwner {
+    ) external onlyOwner { 
         IERC20 token;
         if (_asset == address(0)) {
             token = paymentToken;
@@ -264,6 +243,12 @@ contract Claim is Ownable {
         uint256 _max,
         Claimers _claimer
     ) internal {
+
+        require(
+            terms[_address].max == 0 || terms[_address].claimer == _claimer,
+            "Cannot change type of claimer"    
+        );
+
         uint256 claimer = uint256(_claimer);
 
         uint256 newTotalAllocatedPercents = totalAllocatedPercents[claimer] -
