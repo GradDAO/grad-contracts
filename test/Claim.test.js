@@ -270,25 +270,26 @@ describe("Claim Test", async () => {
 
     it("Withdraw: Success", async () => {
       await dai.mint(investor.address, daiDecimals.mul(100000));
-      dai.connect(investor).approve(claim.address, daiDecimals.mul(100000));
+      await dai
+        .connect(investor)
+        .approve(claim.address, daiDecimals.mul(100000));
       await claim.toggleSaleStatus();
       await claim.setAddressToInvestorWhitelist(
         investor.address,
         gradDecimals.mul(1 * 1e6)
       );
+
       await claim
         .connect(investor)
         .buyInvestorsAllocation(investor.address, gradDecimals.mul(1 * 1e6));
 
-      const balance = await dai.balanceOf(claim.address);
-      console.log(balance);
-
-      dai.connect(deployer).approve(claim.address, daiDecimals.mul(1 * 1e6));
       await claim
         .connect(deployer)
-        .withdraw(deployer.address, dai.address, daiDecimals.mul(1 * 1e6));
+        .withdraw(deployer.address, dai.address, daiDecimals.mul(1 * 1e4));
 
-      await expect(dai.balanceOf(deployer.address)).to.be.equal(1 * 1e6);
+      expect(await dai.balanceOf(deployer.address)).to.be.equal(
+        daiDecimals.mul(1 * 1e4)
+      );
     });
   });
 });
