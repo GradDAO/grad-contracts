@@ -25,16 +25,26 @@ contract Claim is Ownable {
     }
 
     enum Claimers {
-        Team, Investors, Advisers
+        Team,
+        Investors,
+        Advisers
     }
 
     /* ========== EVENTS ============= */
 
     // set terms event
-    event SetTerm(address indexed _address, uint256 _percent, uint256 _max, Claimers indexed _claimer);
+    event SetTerm(
+        address indexed _address,
+        uint256 _percent,
+        uint256 _max,
+        Claimers indexed _claimer
+    );
 
     // change wallet event
-    event WalletChange(address indexed _oldAddress, address indexed _newAddress);
+    event WalletChange(
+        address indexed _oldAddress,
+        address indexed _newAddress
+    );
 
     /* ========== STATE VARIABLES ========== */
 
@@ -54,7 +64,11 @@ contract Claim is Ownable {
     uint256[3] public maximumAllocatedPercents = [10 * 1e4, 5 * 1e4, 3 * 1e4];
 
     // maximum amount of GRAD can allocate (330mm team, 70mm investors, 50mm advisers) (9 decimals)
-    uint256[3] public maximumAllocatedTokens = [330 * 1e6 * 1e9, 70 * 1e6 * 1e9, 50 * 1e6 * 1e9];
+    uint256[3] public maximumAllocatedTokens = [
+        330 * 1e6 * 1e9,
+        70 * 1e6 * 1e9,
+        50 * 1e6 * 1e9
+    ];
 
     // current allocated percents
     uint256[3] public totalAllocatedPercents = [0, 0, 0];
@@ -63,10 +77,10 @@ contract Claim is Ownable {
     uint256[3] public totalAllocatedTokens = [0, 0, 0];
 
     // sale status
-    bool public saleOpened; 
+    bool public saleOpened;
 
     // sale whitelist (amount for each address)
-    mapping(address => uint256) public saleInvestorWhitelist; 
+    mapping(address => uint256) public saleInvestorWhitelist;
 
     uint256 public gradPrice; // 4 decimals ($1 = 10000)
 
@@ -83,9 +97,14 @@ contract Claim is Ownable {
      * @param _address address to send allocation
      * @param _amount amount of GRAD to buy
      */
-    function buyInvestorsAllocation(address _address, uint256 _amount) external {
+    function buyInvestorsAllocation(address _address, uint256 _amount)
+        external
+    {
         require(saleOpened, "Sale is closed");
-        require(saleInvestorWhitelist[msg.sender] != 0, "Address is not whitelisted");
+        require(
+            saleInvestorWhitelist[msg.sender] != 0,
+            "Address is not whitelisted"
+        );
         require(
             saleInvestorWhitelist[msg.sender] >= _amount,
             "Cannot buy more than allowed"
@@ -112,7 +131,9 @@ contract Claim is Ownable {
         //     "Cannot allocate more tokens"
         // );
 
-        IERC20Metadata paymentTokenMetadata = IERC20Metadata(address(paymentToken));
+        IERC20Metadata paymentTokenMetadata = IERC20Metadata(
+            address(paymentToken)
+        );
         paymentToken.safeTransferFrom(
             msg.sender,
             address(this),
@@ -122,7 +143,7 @@ contract Claim is Ownable {
         // totalAllocatedPercents[claimer] += percent_;
         // totalAllocatedTokens[claimer] += _amount;
 
-        setTerm(_address, percent_, _amount, Claimers.Investors);
+        _setTerm(_address, percent_, _amount, Claimers.Investors);
 
         // terms[_address] = Term({
         //     percent: terms[_address].percent + percent_,
@@ -165,7 +186,7 @@ contract Claim is Ownable {
     /**
      * @notice toggle sale status
      */
-    function toggleSaleStatus() external onlyOwner returns(bool) {
+    function toggleSaleStatus() external onlyOwner returns (bool) {
         saleOpened = !saleOpened;
         return !saleOpened;
     }
@@ -204,7 +225,11 @@ contract Claim is Ownable {
      * @param _asset erc20 token to withdraw
      * @param _amount amount to withdraw
      */
-    function withdraw(address _to, address _asset, uint256 _amount) external onlyOwner {
+    function withdraw(
+        address _to,
+        address _asset,
+        uint256 _amount
+    ) external onlyOwner {
         IERC20 token;
         if (_asset == address(0)) {
             token = paymentToken;
@@ -214,6 +239,17 @@ contract Claim is Ownable {
         token.safeTransfer(_to, _amount);
     }
 
+    function setTerm(
+        address _address,
+        uint256 _percent,
+        uint256 _max,
+        Claimers _claimer
+    ) external onlyOwner {
+        _setTerm(_address, _percent, _max, _claimer);
+    }
+
+    /* ========== INTERNAL FUNCTIONS ========== */
+
     /**
      *  @notice set a term for a claimer
      *  @dev can be changed by the owner
@@ -222,23 +258,31 @@ contract Claim is Ownable {
      *  @param _max uint256
      *  @param _claimer type of claimer (team, investor, adviser)
      */
-    function setTerm(
+    function _setTerm(
         address _address,
         uint256 _percent,
         uint256 _max,
         Claimers _claimer
-    ) public onlyOwner {
+    ) internal {
         uint256 claimer = uint256(_claimer);
 
-        uint256 newTotalAllocatedPercents = 
-            totalAllocatedPercents[claimer] - terms[_address].percent + _percent;
+        uint256 newTotalAllocatedPercents = totalAllocatedPercents[claimer] -
+            terms[_address].percent +
+            _percent;
 
-        uint256 newTotalAllocatedTokens = 
-            totalAllocatedTokens[claimer] - terms[_address].max + _max;
+        uint256 newTotalAllocatedTokens = totalAllocatedTokens[claimer] -
+            terms[_address].max +
+            _max;
 
-        require(newTotalAllocatedPercents <= maximumAllocatedPercents[claimer], "Cannot allocate more percents");
+        require(
+            newTotalAllocatedPercents <= maximumAllocatedPercents[claimer],
+            "Cannot allocate more percents"
+        );
 
-        require(newTotalAllocatedTokens <= maximumAllocatedTokens[claimer], "Cannot allocate more tokens");
+        require(
+            newTotalAllocatedTokens <= maximumAllocatedTokens[claimer],
+            "Cannot allocate more tokens"
+        );
 
         totalAllocatedPercents[claimer] = newTotalAllocatedPercents;
 

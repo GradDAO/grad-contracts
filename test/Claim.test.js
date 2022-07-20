@@ -1,12 +1,13 @@
 const { ethers } = require("hardhat");
 const { expect, assert } = require("chai");
 const { smock } = require("@defi-wonderland/smock");
-const BigNumber = require("bignumber.js");
 
 describe("Claim Test", async () => {
     let deployer, alice, bob, carol;
     let erc20Factory;
     let dai;
+    let daiDecimals = ethers.BigNumber.from("1000000000000000000");
+    let gradDecimals = ethers.BigNumber.from("1000000000");
 
     before(async () => {
         [deployer, team, investor, adviser, alice, bob, carol] =
@@ -23,9 +24,9 @@ describe("Claim Test", async () => {
     describe("Claim: basic functions", async () => {
         it("Get share", async () => {
             const percent_ = await claim.getShare(
-                BigNumber(7 * 1e5 * 1e9).toString(),
-                BigNumber(70 * 1e6 * 1e9).toString(),
-                BigNumber(5 * 1e4).toString()
+                gradDecimals.mul(700000),
+                gradDecimals.mul(70000000),
+                50000
             );
             expect(percent_).to.equal(5 * 1e2);
         });
@@ -67,20 +68,25 @@ describe("Claim Test", async () => {
 
             await claim.setAddressToInvestorWhitelist(
                 investor.address,
-                1 * 1e6 * 1e9
+                gradDecimals.mul(1 * 1e6)
             );
 
             const NewAmountOfTokens = await claim.saleInvestorWhitelist(
                 investor.address
             );
-            expect(NewAmountOfTokens).to.equal(1 * 1e6 * 1e9);
+            expect(NewAmountOfTokens).to.equal(gradDecimals.mul(1 * 1e6));
         });
     });
 
     describe("Claim: SetTerm", async () => {
         it("SetTerms: Cannot allocate more percents", async () => {
             await expect(
-                claim.setTerm(investor.address, 5 * 1e5 + 1, 1 * 1e6 * 1e9, 1)
+                claim.setTerm(
+                    investor.address,
+                    5 * 1e4 + 1,
+                    gradDecimals.mul(1 * 1e6),
+                    1
+                )
             ).to.be.revertedWith("Cannot allocate more percents");
         });
 
@@ -89,9 +95,7 @@ describe("Claim Test", async () => {
                 claim.setTerm(
                     investor.address,
                     5 * 1e4,
-                    BigNumber(70 * 1e6 * 1e9)
-                        .plus(1)
-                        .toString(),
+                    gradDecimals.mul(70 * 1e6).add(1),
                     1
                 )
             ).to.be.revertedWith("Cannot allocate more tokens");
@@ -103,19 +107,29 @@ describe("Claim Test", async () => {
             expect(currentTerms.max).to.equal(0);
             expect(currentTerms.claimer).to.equal(0);
 
-            await claim.setTerm(investor.address, 5 * 1e4, 1 * 1e6 * 1e9, 1);
+            await claim.setTerm(
+                investor.address,
+                5 * 1e4,
+                gradDecimals.mul(1 * 1e6),
+                1
+            );
 
             const newTerms = await claim.terms(investor.address);
 
             expect(newTerms.percent).to.equal(5 * 1e4);
-            expect(newTerms.max).to.equal(1 * 1e6 * 1e9);
+            expect(newTerms.max).to.equal(gradDecimals.mul(1 * 1e6));
             expect(newTerms.claimer).to.equal(1);
         });
     });
 
     describe("Claim: WalletChange", async () => {
         beforeEach(async () => {
-            await claim.setTerm(investor.address, 5 * 1e3, 1 * 1e6 * 1e9, 1);
+            await claim.setTerm(
+                investor.address,
+                5 * 1e3,
+                gradDecimals.mul(1 * 1e6),
+                1
+            );
         });
 
         it("WalletChange: No wallet to change", async () => {
@@ -142,7 +156,12 @@ describe("Claim Test", async () => {
             });
 
             it("pullWalletChange: Wallet already exists", async () => {
-                await claim.setTerm(bob.address, 5 * 1e3, 1 * 1e6 * 1e9, 1);
+                await claim.setTerm(
+                    bob.address,
+                    5 * 1e3,
+                    gradDecimals.mul(1 * 1e6),
+                    1
+                );
                 await expect(
                     claim.connect(bob).pullWalletChange(investor.address)
                 ).to.be.revertedWith("Wallet already exists");
@@ -170,7 +189,10 @@ describe("Claim Test", async () => {
             await expect(
                 claim
                     .connect(investor)
-                    .buyInvestorsAllocation(investor.address, 1000 * 1e9)
+                    .buyInvestorsAllocation(
+                        investor.address,
+                        gradDecimals.mul(1000)
+                    )
             ).to.be.revertedWith("Sale is closed");
         });
 
@@ -181,7 +203,10 @@ describe("Claim Test", async () => {
             await expect(
                 claim
                     .connect(investor)
-                    .buyInvestorsAllocation(investor.address, 1000 * 1e9)
+                    .buyInvestorsAllocation(
+                        investor.address,
+                        gradDecimals.mul(1000)
+                    )
             ).to.be.revertedWith("Address is not whitelisted");
         });
 
@@ -189,30 +214,66 @@ describe("Claim Test", async () => {
             await claim.toggleSaleStatus();
             await claim.setAddressToInvestorWhitelist(
                 investor.address,
-                1000 * 1e9
+                gradDecimals.mul(1000)
             );
 
             await expect(
                 claim
                     .connect(investor)
-                    .buyInvestorsAllocation(investor.address, 10000 * 1e9)
+                    .buyInvestorsAllocation(
+                        investor.address,
+                        gradDecimals.mul(10000)
+                    )
             ).to.be.revertedWith("Cannot buy more than allowed");
         });
 
-        it("Success", async () => {
-            dai.mint(investor, 100000 * 1e18);
+        it.only("Success", async () => {
+            await dai.mint(investor.address, daiDecimals.mul(100000));
 
-            console.log(await dai.decimals());
+            console.log("1");
 
             const balance = await dai.balanceOf(investor.address);
-            expect(balance).to.be.equal(100000 * 1e18);
+            expect(balance).to.be.equal(daiDecimals.mul(100000));
 
-            //dai.connect(investor).approve(claim.address, 100000 * 1e18);
-            // await claim.toggleSaleStatus();
-            // await claim.setAddressToInvestorWhitelist(investor.address, 1 * 1e6 * 1e9);
-            // await claim.connect(investor).buyInvestorsAllocation(investor.address, 1 * 1e6 * 1e9);
+            dai.connect(investor).approve(
+                claim.address,
+                daiDecimals.mul(100000)
+            );
 
-            // expect(dai.balanceOf(investor.address)).to.be.equal(90000 * 1e18);
+            console.log("2");
+
+            await claim.toggleSaleStatus();
+
+            console.log("3");
+
+            await claim.setAddressToInvestorWhitelist(
+                investor.address,
+                gradDecimals.mul(1 * 1e6)
+            );
+
+            console.log("4");
+
+            await claim
+                .connect(investor)
+                .buyInvestorsAllocation(
+                    investor.address,
+                    gradDecimals.mul(1 * 1e6)
+                );
+
+            console.log("5");
+
+            expect(await dai.balanceOf(investor.address)).to.be.equal(
+                daiDecimals.mul(90000)
+            );
+            expect(await claim.terms(investor.address).max).to.be.equal(
+                gradDecimals.mul(1 * 1e6)
+            );
+            console.log("6");
+
+            expect(await claim.terms(investor.address).percent).to.be.equal(
+                714
+            );
+            expect(await claim.terms(investor.address).claimer).to.be.equal(1);
         });
     });
 
