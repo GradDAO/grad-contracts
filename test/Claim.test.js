@@ -83,7 +83,7 @@ describe("Claim Test", async () => {
             await expect(
                 claim.setTerm(
                     investor.address,
-                    5 * 1e4 + 1,
+                    5 * 1e8 + 1,
                     gradDecimals.mul(1 * 1e6),
                     1
                 )
@@ -94,7 +94,7 @@ describe("Claim Test", async () => {
             await expect(
                 claim.setTerm(
                     investor.address,
-                    5 * 1e4,
+                    5 * 1e8,
                     gradDecimals.mul(70 * 1e6).add(1),
                     1
                 )
@@ -104,7 +104,7 @@ describe("Claim Test", async () => {
         it("SetTerms: Cannot change type of a claimer", async () => {
             await claim.setTerm(
                 carol.address,
-                5 * 1e3,
+                5 * 1e7,
                 gradDecimals.mul(1 * 1e5),
                 2
             );
@@ -112,7 +112,7 @@ describe("Claim Test", async () => {
             await expect(
                 claim.setTerm(
                     carol.address,
-                    5 * 1e3,
+                    5 * 1e7,
                     gradDecimals.mul(1 * 1e5),
                     0
                 )
@@ -127,14 +127,14 @@ describe("Claim Test", async () => {
 
             await claim.setTerm(
                 investor.address,
-                5 * 1e4,
+                5 * 1e8,
                 gradDecimals.mul(1 * 1e6),
                 1
             );
 
             const newTerms = await claim.terms(investor.address);
 
-            expect(newTerms.percent).to.equal(5 * 1e4);
+            expect(newTerms.percent).to.equal(5 * 1e8);
             expect(newTerms.max).to.equal(gradDecimals.mul(1 * 1e6));
             expect(newTerms.claimer).to.equal(1);
         });
@@ -144,7 +144,7 @@ describe("Claim Test", async () => {
         beforeEach(async () => {
             await claim.setTerm(
                 investor.address,
-                5 * 1e3,
+                5 * 1e7,
                 gradDecimals.mul(1 * 1e6),
                 1
             );
@@ -176,7 +176,7 @@ describe("Claim Test", async () => {
             it("pullWalletChange: Wallet already exists", async () => {
                 await claim.setTerm(
                     bob.address,
-                    5 * 1e3,
+                    5 * 1e7,
                     gradDecimals.mul(1 * 1e6),
                     1
                 );
@@ -189,7 +189,7 @@ describe("Claim Test", async () => {
                 const currentOldAddresTerm = await claim.terms(
                     investor.address
                 );
-                expect(currentOldAddresTerm.percent).to.equal(5 * 1e3);
+                expect(currentOldAddresTerm.percent).to.equal(5 * 1e7);
                 const currentNewAddresTerm = await claim.terms(bob.address);
                 expect(currentNewAddresTerm.percent).to.equal(0);
 
@@ -198,7 +198,7 @@ describe("Claim Test", async () => {
                 const newOldAddresTerm = await claim.terms(investor.address);
                 expect(newOldAddresTerm.percent).to.equal(0);
                 const newNewAddresTerm = await claim.terms(bob.address);
-                expect(newNewAddresTerm.percent).to.equal(5 * 1e3);
+                expect(newNewAddresTerm.percent).to.equal(5 * 1e7);
             });
         });
     });
@@ -246,7 +246,7 @@ describe("Claim Test", async () => {
             ).to.be.revertedWith("Cannot buy more than allowed");
         });
 
-        it("Cannot buy less than 1400", async () => {
+        it("Cannot buy less than 0.14 GRAD", async () => {
             await claim.toggleSaleStatus();
             await claim.setAddressToInvestorWhitelist(
                 investor.address,
@@ -258,7 +258,7 @@ describe("Claim Test", async () => {
                     .connect(investor)
                     .buyInvestorsAllocation(
                         investor.address,
-                        gradDecimals.mul(1399)
+                        gradDecimals.mul(1399).div(1e4)
                     )
             ).to.be.revertedWith("Amount of tokens is too small");
 
@@ -267,7 +267,7 @@ describe("Claim Test", async () => {
                     .connect(investor)
                     .buyInvestorsAllocation(
                         investor.address,
-                        gradDecimals.mul(1400)
+                        gradDecimals.mul(1400).div(1e4)
                     )
             ).to.be.revertedWith("TRANSFER_FROM_FAILED");
         });
@@ -303,8 +303,83 @@ describe("Claim Test", async () => {
             const terms = await claim.terms(investor.address);
             expect(terms.max).to.be.equal(gradDecimals.mul(1 * 1e6));
 
-            expect(terms.percent).to.be.equal(714);
+            expect(terms.percent).to.be.equal(7142857);
             expect(terms.claimer).to.be.equal(1);
+        });
+        it("Purchases are summing up", async () => {
+            await dai.mint(investor.address, daiDecimals.mul(100000));
+            await dai
+                .connect(investor)
+                .approve(claim.address, daiDecimals.mul(100000));
+
+            await claim.toggleSaleStatus();
+
+            await claim.setAddressToInvestorWhitelist(
+                investor.address,
+                gradDecimals.mul(3 * 1e6)
+            );
+
+            await claim
+                .connect(investor)
+                .buyInvestorsAllocation(
+                    investor.address,
+                    gradDecimals.mul(1 * 1e6)
+                );
+
+            await claim
+                .connect(investor)
+                .buyInvestorsAllocation(
+                    investor.address,
+                    gradDecimals.mul(1 * 1e6)
+                );
+
+            expect(await dai.balanceOf(investor.address)).to.be.equal(
+                daiDecimals.mul(80000)
+            );
+
+            const terms = await claim.terms(investor.address);
+            expect(terms.max).to.be.equal(gradDecimals.mul(2 * 1e6));
+            expect(terms.percent).to.be.equal(2 * 7142857);
+            expect(terms.claimer).to.be.equal(1);
+
+            const restInWhitelist = await claim.saleInvestorWhitelist(
+                investor.address
+            );
+            expect(restInWhitelist).to.be.equal(gradDecimals.mul(1 * 1e6));
+        });
+        it("Buy to another address", async () => {
+            await dai.mint(investor.address, daiDecimals.mul(100000));
+            await dai
+                .connect(investor)
+                .approve(claim.address, daiDecimals.mul(100000));
+
+            await claim.toggleSaleStatus();
+
+            await claim.setAddressToInvestorWhitelist(
+                investor.address,
+                gradDecimals.mul(1 * 1e6)
+            );
+
+            await claim
+                .connect(investor)
+                .buyInvestorsAllocation(
+                    alice.address,
+                    gradDecimals.mul(1 * 1e6)
+                );
+
+            expect(await dai.balanceOf(investor.address)).to.be.equal(
+                daiDecimals.mul(90000)
+            );
+
+            const aliceTerms = await claim.terms(alice.address);
+            expect(aliceTerms.max).to.be.equal(gradDecimals.mul(1 * 1e6));
+            expect(aliceTerms.percent).to.be.equal(7142857);
+            expect(aliceTerms.claimer).to.be.equal(1);
+
+            const investorTerms = await claim.terms(investor.address);
+            expect(investorTerms.max).to.be.equal(0);
+            expect(investorTerms.percent).to.be.equal(0);
+            expect(investorTerms.claimer).to.be.equal(0);
         });
     });
 

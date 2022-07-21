@@ -19,7 +19,7 @@ contract Claim is Ownable {
     /* ========== STRUCTS ========== */
 
     struct Term {
-        uint256 percent; // 4 decimals ( 5000 = 0.5% )
+        uint256 percent; // 8 decimals ( 100000000 = 1% )
         uint256 max; // maximum nominal GRAD amount can claim (9 decimals)
         Claimers claimer; // type of claimer (0 - team, 1 - investor, 2 - adviser)
     }
@@ -60,8 +60,8 @@ contract Claim is Ownable {
     // facilitates address change
     mapping(address => address) public walletChange;
 
-    // maximum portion of supply can allocate (10% team, 5% investors, 3% advisers) (4 decimals)
-    uint256[3] public maximumAllocatedPercents = [10 * 1e4, 5 * 1e4, 3 * 1e4];
+    // maximum portion of supply can allocate (10% team, 5% investors, 3% advisers) (8 decimals)
+    uint256[3] public maximumAllocatedPercents = [10 * 1e8, 5 * 1e8, 3 * 1e8];
 
     // maximum amount of GRAD can allocate (330mm team, 70mm investors, 50mm advisers) (9 decimals)
     uint256[3] public maximumAllocatedTokens = [
@@ -131,7 +131,12 @@ contract Claim is Ownable {
             (_amount * gradPrice * 10**paymentTokenMetadata.decimals()) / 1e13 // 18 (dai) - 9 (grad) - 4 (gradPrice) decimals
         );
 
-        _setTerm(_address, percent_, _amount, Claimers.Investors);
+        _setTerm(
+            _address,
+            terms[_address].percent + percent_,
+            terms[_address].max + _amount,
+            Claimers.Investors
+        );
     }
 
     /* ========== MUTABLE FUNCTIONS ========== */
