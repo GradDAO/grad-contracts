@@ -287,9 +287,8 @@ describe("Claim Test", async () => {
         .connect(deployer)
         .withdraw(deployer.address, dai.address, daiDecimals.mul(1 * 1e4));
 
-      expect(await dai.balanceOf(deployer.address)).to.be.equal(
-        daiDecimals.mul(1 * 1e4)
-      );
+      const balance = await dai.balanceOf(deployer.address);
+      expect(balance).to.be.equal(daiDecimals.mul(1 * 1e4));
     });
   });
 });
