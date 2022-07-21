@@ -120,6 +120,8 @@ contract Claim is Ownable {
             maximumAllocatedPercents[claimer]
         );
 
+        require(percent_ > 0, "Amount of tokens is too small");
+
         IERC20Metadata paymentTokenMetadata = IERC20Metadata(
             address(paymentToken)
         );
@@ -208,7 +210,7 @@ contract Claim is Ownable {
         address _to,
         address _asset,
         uint256 _amount
-    ) external onlyOwner { 
+    ) external onlyOwner {
         IERC20 token;
         if (_asset == address(0)) {
             token = paymentToken;
@@ -243,10 +245,9 @@ contract Claim is Ownable {
         uint256 _max,
         Claimers _claimer
     ) internal {
-
         require(
             terms[_address].max == 0 || terms[_address].claimer == _claimer,
-            "Cannot change type of claimer"    
+            "Cannot change type of a claimer"
         );
 
         uint256 claimer = uint256(_claimer);
