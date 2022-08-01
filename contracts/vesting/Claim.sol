@@ -172,9 +172,8 @@ contract Claim is Ownable {
     /**
      * @notice toggle sale status
      */
-    function toggleSaleStatus() external onlyOwner returns (bool) {
+    function toggleSaleStatus() external onlyOwner {
         saleOpened = !saleOpened;
-        return !saleOpened;
     }
 
     /**

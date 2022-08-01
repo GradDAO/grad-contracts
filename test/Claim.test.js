@@ -31,11 +31,19 @@ describe("Claim Test", async () => {
             expect(percent_).to.equal(5 * 1e2);
         });
 
-        it("Change Grad Price", async () => {
-            const currentPrice = await claim.gradPrice();
-            await claim.changeGradPrice(1000);
-            const newGradPrice = await claim.gradPrice();
-            expect(newGradPrice - currentPrice).to.equal(900);
+        describe("Basic functions: Change Grad Price", async () => {
+            it("Change Grad Price: caller is not the owner", async () => {    
+                await expect(
+                    claim.connect(bob).changeGradPrice(100)
+                ).to.be.revertedWith("Ownable: caller is not the owner");
+            });
+    
+            it("Change Grad Price: Success", async () => {
+                const currentPrice = await claim.gradPrice();
+                await claim.changeGradPrice(1000);
+                const newGradPrice = await claim.gradPrice();
+                expect(newGradPrice - currentPrice).to.equal(900);
+            });
         });
 
         it("Change payment token", async () => {
@@ -50,35 +58,64 @@ describe("Claim Test", async () => {
             expect(newPaymentToken).to.equal(usdc.address);
         });
 
-        it("Toggle status", async () => {
-            const currentStatus = await claim.saleOpened();
-            expect(currentStatus).to.equal(false);
-
-            await claim.toggleSaleStatus();
-
-            const newStatus = await claim.saleOpened();
-            expect(newStatus).to.equal(true);
+        describe("Basic functions: toggle status", async () => {
+            it("Toggle status: caller is not the owner", async () => {
+                const currentStatus = await claim.saleOpened();
+                expect(currentStatus).to.equal(false);
+    
+                await expect(
+                    claim.connect(bob).toggleSaleStatus()
+                ).to.be.revertedWith("Ownable: caller is not the owner");
+            });
+    
+            it("Toggle status: Success", async () => {
+                const currentStatus = await claim.saleOpened();
+                expect(currentStatus).to.equal(false);
+    
+                await claim.toggleSaleStatus();
+    
+                const newStatus = await claim.saleOpened();
+                expect(newStatus).to.equal(true);
+            });
         });
 
-        it("Add investor to whitelist", async () => {
-            const currentAmountOfTokens = await claim.saleInvestorWhitelist(
-                investor.address
-            );
-            expect(currentAmountOfTokens).to.equal(0);
-
-            await claim.setAddressToInvestorWhitelist(
-                investor.address,
-                gradDecimals.mul(1 * 1e6)
-            );
-
-            const NewAmountOfTokens = await claim.saleInvestorWhitelist(
-                investor.address
-            );
-            expect(NewAmountOfTokens).to.equal(gradDecimals.mul(1 * 1e6));
+        describe("Basic functions: add investor to whitelist", async () => {
+            it("Add investor to whitelist: caller is not the owner", async () => {
+                await expect(claim.connect(bob).setAddressToInvestorWhitelist(
+                    investor.address,
+                    gradDecimals.mul(1 * 1e6)
+                )).to.be.revertedWith("Ownable: caller is not the owner");
+            });
+    
+            it("Add investor to whitelist: Success", async () => {
+                const currentAmountOfTokens = await claim.saleInvestorWhitelist(
+                    investor.address
+                );
+                expect(currentAmountOfTokens).to.equal(0);
+    
+                await claim.setAddressToInvestorWhitelist(
+                    investor.address,
+                    gradDecimals.mul(1 * 1e6)
+                );
+    
+                const NewAmountOfTokens = await claim.saleInvestorWhitelist(
+                    investor.address
+                );
+                expect(NewAmountOfTokens).to.equal(gradDecimals.mul(1 * 1e6));
+            });
         });
     });
 
     describe("Claim: SetTerm", async () => {
+        it("SetTerms: caller is not the owner", async () => {
+            await expect(claim.connect(bob).setTerm(
+                    investor.address,
+                    5 * 1e8 + 1,
+                    gradDecimals.mul(1 * 1e6),
+                    1
+            )).to.be.revertedWith("Ownable: caller is not the owner");
+        });
+
         it("SetTerms: Cannot allocate more percents", async () => {
             await expect(
                 claim.setTerm(
@@ -393,7 +430,7 @@ describe("Claim Test", async () => {
                         dai.address,
                         daiDecimals.mul(1 * 1e6)
                     )
-            ).to.be.revertedWith("Ownable: caller is not the owner");
+            ).to.be.revertedWith("caller is not the owner");
         });
 
         it("Withdraw: TRANSFER_FAILED", async () => {
